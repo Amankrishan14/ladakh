@@ -17,40 +17,24 @@ export default function ArVideoFrame({ onVideoPlaying }) {
   const activeConfig = videoConfigs[activeIndex] || videoConfigs[0]
   const preloadedVideosRef = useRef(new Map())
 
-  // OPTIMIZED: Simplified preloading for 2 videos - load both immediately but prioritize current
+  // OPTIMIZED: Simplified preloading - use metadata for faster initial load
   useEffect(() => {
-    const preloadVideo = (config, priority = 'auto') => {
+    const preloadVideo = (config, priority = 'metadata') => {
       if (!preloadedVideosRef.current.has(config.id)) {
         const preloadVideo = document.createElement('video')
         preloadVideo.src = config.videoSrc
-        preloadVideo.preload = priority
+        preloadVideo.preload = priority // Use metadata instead of auto for faster start
         preloadVideo.muted = true
         preloadVideo.playsInline = true
-        // Don't call load() - browser handles it with preload attribute
+        preloadVideo.load() // Explicitly trigger load
         preloadedVideosRef.current.set(config.id, preloadVideo)
       }
     }
 
-    // OPTIMIZED: With only 2 videos, preload both immediately but prioritize current
+    // OPTIMIZED: Preload current video with metadata priority for fastest start
     const currentConfig = videoConfigs[activeIndex]
-    const nextIndex = (activeIndex + 1) % videoConfigs.length
-    const nextConfig = videoConfigs[nextIndex]
-
-    // Preload current video immediately (high priority)
     if (currentConfig) {
-      preloadVideo(currentConfig, 'auto')
-    }
-
-    // Preload next video immediately as well (we only have 2 videos total)
-    // Use a small delay to not block initial render
-    const nextVideoTimer = requestAnimationFrame(() => {
-      if (nextConfig) {
-        preloadVideo(nextConfig, 'auto')
-      }
-    })
-
-    return () => {
-      cancelAnimationFrame(nextVideoTimer)
+      preloadVideo(currentConfig, 'metadata')
     }
   }, [activeIndex])
 

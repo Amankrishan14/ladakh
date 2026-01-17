@@ -72,11 +72,11 @@ export default function TempleVideoCard({ videoSrc, templeName, onVideoPlaying }
       videoEl.style.transition = 'opacity 0.2s ease-out'
     }
     
-    // OPTIMIZED: Set source and preload strategy for smooth rendering
+    // OPTIMIZED: Set source and preload strategy for fastest initial playback
     videoEl.src = videoSrc
-    videoEl.preload = 'auto' // Use auto for active video
+    videoEl.preload = 'metadata' // Use metadata for faster initial load
     videoEl.muted = !audioEnabled
-    // Browser handles loading efficiently with preload="auto"
+    videoEl.load() // Explicitly trigger load for faster start
     
     // Add error handling for video loading failures
     const handleError = (e) => {
@@ -88,9 +88,9 @@ export default function TempleVideoCard({ videoSrc, templeName, onVideoPlaying }
     videoEl.addEventListener('error', handleError, { once: true })
     
     const playVideo = () => {
-      // Use readyState >= 2 (canplay) instead of >= 3 (canplaythrough) for faster initial display
-      // This allows video to start playing with partial buffering for smooth rendering
-      if (videoEl.readyState >= 2) {
+      // OPTIMIZED: Start playing with minimal buffering (readyState >= 1 = HAVE_METADATA)
+      // This allows video to start playing as soon as metadata is available
+      if (videoEl.readyState >= 1) {
         requestAnimationFrame(() => {
           videoEl.style.opacity = '1'
           videoEl.style.transition = 'opacity 0.3s ease-in'
@@ -126,43 +126,38 @@ export default function TempleVideoCard({ videoSrc, templeName, onVideoPlaying }
       }
     }
 
-    // OPTIMIZED: Use canplay instead of canplaythrough for faster initial display
-    // readyState >= 2 means enough data loaded to start playing
-    if (videoEl.readyState >= 2) {
+    // OPTIMIZED: Start playing as soon as metadata is available (fastest possible start)
+    // readyState >= 1 (HAVE_METADATA) means we can start playing immediately
+    if (videoEl.readyState >= 1) {
       playVideo()
     } else {
       const handleReady = () => {
-        if (videoEl.readyState >= 2) {
+        if (videoEl.readyState >= 1) {
           playVideo()
         }
       }
       
       // Listen to multiple events for fastest possible start
-      videoEl.addEventListener('canplay', handleReady, { once: true })
+      // loadstart fires first when loading begins
+      videoEl.addEventListener('loadstart', handleReady, { once: true })
+      videoEl.addEventListener('loadedmetadata', handleReady, { once: true })
       videoEl.addEventListener('loadeddata', handleReady, { once: true })
-      videoEl.addEventListener('loadstart', () => {
-        // Try to play as soon as loading starts if readyState allows
-        if (videoEl.readyState >= 1) {
-          handleReady()
-        }
-      }, { once: true })
+      videoEl.addEventListener('canplay', handleReady, { once: true })
       
-      // Add timeout fallback to prevent infinite loading
+      // Add shorter timeout fallback to prevent infinite loading
       const timeoutId = setTimeout(() => {
         console.warn('Video loading timeout, attempting to play anyway')
+        setVideoReady(true)
         if (videoEl.readyState >= 1) {
-          setVideoReady(true)
           videoEl.play().catch(err => {
             console.error('Video play after timeout failed:', err)
           })
         }
-      }, 10000) // 10 second timeout
+      }, 5000) // 5 second timeout (reduced from 10)
       
       // Cleanup timeout when video loads
       const cleanupTimeout = () => {
         clearTimeout(timeoutId)
-        videoEl.removeEventListener('canplay', cleanupTimeout)
-        videoEl.removeEventListener('loadeddata', cleanupTimeout)
       }
       videoEl.addEventListener('canplay', cleanupTimeout, { once: true })
       videoEl.addEventListener('loadeddata', cleanupTimeout, { once: true })
@@ -186,6 +181,7 @@ export default function TempleVideoCard({ videoSrc, templeName, onVideoPlaying }
           playsInline
           preload="metadata"
           volume={1}
+          playsinline="true"
         />
         
         {!videoReady && (

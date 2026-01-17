@@ -18,16 +18,16 @@ function App() {
     console.log('App component mounted')
     performanceMonitor.mark('app-mount')
     
-    // Simulate initial app loading progress
+    // Simulate initial app loading progress (faster)
     const progressInterval = setInterval(() => {
       setLoadingProgress(prev => {
         if (prev >= 30) {
           clearInterval(progressInterval)
           return 30
         }
-        return prev + 10
+        return prev + 15
       })
-    }, 100)
+    }, 50) // Faster interval
     
     return () => clearInterval(progressInterval)
   }, [])
@@ -90,11 +90,11 @@ function App() {
             setTimeout(() => performanceMonitor.logMetrics(), 500)
           }
           
-          // Small delay to show 100% before hiding loader
+          // Small delay to show 100% before hiding loader (reduced delay)
           setTimeout(() => {
             setLoading(false)
             console.log('Camera initialization complete, loading set to false')
-          }, 300)
+          }, 100) // Reduced from 300ms to 100ms for faster transition
         } catch (playErr) {
           console.error('Error playing camera video:', playErr)
           setLoading(false)
